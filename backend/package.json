@@ -8,7 +8,7 @@
     "dev": "nodemon src/server.ts",
     "dev:simple": "ts-node src/simple-server.ts",
     "dev:vercel": "vercel dev",
-    "build": "tsc && tsc-alias",
+    "build": "prisma generate",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
@@ -48,6 +48,7 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",

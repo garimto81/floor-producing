@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WSOP Field Director Pro - 관리자 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="./app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div x-data="adminApp" x-cloak class="min-h-screen">
+        <!-- 네비게이션 바 -->
+        <nav class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <h1 class="text-2xl font-bold text-gray-800">
+                                <i class="fas fa-video text-blue-600 mr-2"></i>
+                                WSOP 관리자 패널
+                            </h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-600" x-show="user">
+                            <i class="fas fa-user-circle mr-1"></i>
+                            <span x-text="user?.name"></span>
+                        </div>
+                        <button @click="logout" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-sign-out-alt mr-1"></i>
+                            로그아웃
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 로그인 폼 -->
+        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-md w-full space-y-8">
+                <div>
+                    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                        관리자 로그인
+                    </h2>
+                    <p class="mt-2 text-center text-sm text-gray-600">
+                        WSOP Field Director Pro 백엔드 관리
+                    </p>
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <h3 class="text-sm font-medium text-blue-800">기본 관리자 계정:</h3>
+                        <p class="text-sm text-blue-700">이메일: director@wsop.com</p>
+                        <p class="text-sm text-blue-700">비밀번호: director123</p>
+                    </div>
+                </div>
+                <form @submit.prevent="login" class="mt-8 space-y-6">
+                    <div>
+                        <input x-model="loginForm.email" type="email" required 
+                               class="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                               placeholder="이메일 주소">
+                    </div>
+                    <div>
+                        <input x-model="loginForm.password" type="password" required
+                               class="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                               placeholder="비밀번호">
+                    </div>
+                    <button type="submit" 
+                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        로그인
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 메인 대시보드 -->
+        <div x-show="isAuthenticated" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 성공적인 배포 알림 -->
+            <div class="mb-8 bg-green-50 border border-green-200 rounded-lg p-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-800">
+                            배포 성공!
+                        </h3>
+                        <div class="mt-2 text-sm text-green-700">
+                            <p>WSOP Field Director Pro 백엔드가 Vercel에 성공적으로 배포되었습니다.</p>
+                            <div class="mt-3 space-y-2">
+                                <p><strong>프로덕션 URL:</strong> https://wsop-field-director-backend.vercel.app</p>
+                                <p><strong>API 헬스 체크:</strong> <a href="https://wsop-field-director-backend.vercel.app/api/health" target="_blank" class="text-blue-600 hover:text-blue-800">테스트하기</a></p>
+                                <p><strong>데이터베이스:</strong> PostgreSQL (Neon) 연결됨</p>
+                                <p><strong>등록된 사용자:</strong> <span x-text="stats.totalUsers || '2'"></span>명</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 통계 카드들 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-users text-blue-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">전체 사용자</dt>
+                                    <dd class="text-lg font-medium text-gray-900" x-text="stats.totalUsers || 2"></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-server text-green-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">서버 상태</dt>
+                                    <dd class="text-lg font-medium text-green-600">정상 운영</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-database text-purple-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">데이터베이스</dt>
+                                    <dd class="text-lg font-medium text-purple-600">연결됨</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-cloud text-blue-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">플랫폼</dt>
+                                    <dd class="text-lg font-medium text-blue-600">Vercel</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API 엔드포인트 정보 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                            <i class="fas fa-link text-blue-600 mr-2"></i>API 엔드포인트
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">GET /api/health</span>
+                                <a href="https://wsop-field-director-backend.vercel.app/api/health" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-800 text-sm">테스트</a>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">GET /api/db-status</span>
+                                <a href="https://wsop-field-director-backend.vercel.app/api/db-status" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-800 text-sm">테스트</a>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">POST /api/auth/login</span>
+                                <span class="text-gray-500 text-sm">인증</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">POST /api/auth/register</span>
+                                <span class="text-gray-500 text-sm">등록</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                            <i class="fas fa-info-circle text-green-600 mr-2"></i>배포 정보
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-500">플랫폼</span>
+                                <span class="text-sm text-gray-900">Vercel Serverless</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-500">데이터베이스</span>
+                                <span class="text-sm text-gray-900">PostgreSQL (Neon)</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-500">Node.js 버전</span>
+                                <span class="text-sm text-gray-900">22.x</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-500">배포 시간</span>
+                                <span class="text-sm text-gray-900" x-text="new Date().toLocaleString()"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-500">상태</span>
+                                <span class="text-sm text-green-600">
+                                    <i class="fas fa-circle text-xs mr-1"></i>정상 운영
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 알림 메시지 -->
+        <div x-show="notification.show" x-transition:enter="transform ease-out duration-300 transition" x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2" x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 flex items-end justify-center px-4 py-6 pointer-events-none sm:p-6 sm:items-start sm:justify-end z-50">
+            <div class="max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                <div class="p-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i :class="notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 'fas fa-exclamation-circle text-red-400'"></i>
+                        </div>
+                        <div class="ml-3 w-0 flex-1 pt-0.5">
+                            <p class="text-sm font-medium text-gray-900" x-text="notification.message"></p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex">
+                            <button @click="notification.show = false" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

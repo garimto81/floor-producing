@@ -1,28 +1,20 @@
 {
   "version": 2,
-  "name": "wsop-field-director-backend",
-  "builds": [
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/admin/(.*)",
-      "dest": "/admin/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
-    "api/index.ts": {
+    "api/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/admin/(.*)",
+      "destination": "/admin/$1"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index?path=$1"
+    }
+  ],
+  "buildCommand": "prisma generate",
+  "outputDirectory": "."
 }

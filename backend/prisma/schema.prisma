@@ -3,13 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // 사용자 모델
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   email     String   @unique
   password  String
   name      String
@@ -35,7 +35,7 @@ model User {
 
 // 토너먼트 모델
 model Tournament {
-  id          String @id @default(uuid())
+  id          String @id @default(cuid())
   name        String
   location    String
   timezone    String
@@ -59,7 +59,7 @@ model Tournament {
 
 // 토너먼트 사용자 연결
 model TournamentUser {
-  id           String @id @default(uuid())
+  id           String @id @default(cuid())
   tournamentId String
   userId       String
   role         String // UserRole enum → String
@@ -75,7 +75,7 @@ model TournamentUser {
 
 // 팀 모델
 model Team {
-  id           String @id @default(uuid())
+  id           String @id @default(cuid())
   tournamentId String
   name         String
   description  String?
@@ -93,7 +93,7 @@ model Team {
 
 // 팀 멤버
 model TeamMember {
-  id       String @id @default(uuid())
+  id       String @id @default(cuid())
   teamId   String
   userId   String
   position String
@@ -112,7 +112,7 @@ model TeamMember {
 
 // 체크리스트 템플릿
 model ChecklistTemplate {
-  id           String  @id @default(uuid())
+  id           String  @id @default(cuid())
   tournamentId String
   name         String
   category     String
@@ -133,7 +133,7 @@ model ChecklistTemplate {
 
 // 체크리스트 아이템
 model ChecklistItem {
-  id          String  @id @default(uuid())
+  id          String  @id @default(cuid())
   templateId  String
   title       String
   description String?
@@ -152,7 +152,7 @@ model ChecklistItem {
 
 // 사용자별 체크리스트 완료 상태
 model UserChecklistItem {
-  id         String   @id @default(uuid())
+  id         String   @id @default(cuid())
   userId     String
   templateId String
   itemId     String
@@ -175,7 +175,7 @@ model UserChecklistItem {
 
 // 프로덕션 상태
 model ProductionStatus {
-  id             String  @id @default(uuid())
+  id             String  @id @default(cuid())
   tournamentId   String  @unique
   mode           String  @default("NORMAL") // ProductionMode enum → String
   featureTable   String?
@@ -196,7 +196,7 @@ model ProductionStatus {
 
 // 메시지/커뮤니케이션
 model Message {
-  id          String  @id @default(uuid())
+  id          String  @id @default(cuid())
   senderId    String
   recipientId String?
   type        String  @default("GENERAL") // MessageType enum → String
@@ -219,7 +219,7 @@ model Message {
 
 // 긴급 상황
 model Emergency {
-  id           String   @id @default(uuid())
+  id           String   @id @default(cuid())
   tournamentId String
   userId       String
   type         String   // EmergencyType enum → String
@@ -242,7 +242,7 @@ model Emergency {
 
 // 파일 업로드
 model File {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   messageId String?
   filename  String
   originalName String
