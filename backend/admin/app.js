@@ -94,8 +94,10 @@ function adminApp() {
         maxPlayers: 500,
         isActive: true
       },
-      editingId: null
+      editingId: null,
+      showForm: false
     },
+    showTournamentForm: false,
 
     // 체크리스트 데이터
     checklists: {
@@ -112,8 +114,10 @@ function adminApp() {
         isRequired: true,
         estimatedMinutes: 10
       },
-      editingId: null
+      editingId: null,
+      showForm: false
     },
+    showChecklistForm: false,
 
     // 일정 관리 데이터
     schedules: {
@@ -408,9 +412,77 @@ function adminApp() {
       // 이미 init에서 로드됨
     },
 
+    // 새 토너먼트 생성
+    async createTournament() {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        // 폼 유효성 검사
+        if (!this.tournaments.form.name) {
+          this.showError('토너먼트 이름을 입력해주세요.');
+          return;
+        }
+        
+        // 현재는 로컬 리스트에 추가
+        const newTournament = {
+          id: Date.now(),
+          ...this.tournaments.form,
+          status: 'UPCOMING',
+          createdAt: new Date().toISOString()
+        };
+        
+        this.tournaments.list.push(newTournament);
+        
+        // 폼 초기화
+        this.resetTournamentForm();
+        this.showTournamentForm = false;
+        this.showSuccess('토너먼트가 성공적으로 생성되었습니다.');
+        
+      } catch (error) {
+        this.showError('토너먼트 생성 실패: ' + error.message);
+      } finally {
+        this.loading = false;
+      }
+    },
+
     // 체크리스트 목록 로드 (현재는 모의 데이터)
     loadChecklists() {
       // 이미 init에서 로드됨
+    },
+
+    // 새 체크리스트 템플릿 생성
+    async createChecklistTemplate() {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        // 폼 유효성 검사
+        if (!this.checklists.form.name) {
+          this.showError('체크리스트 이름을 입력해주세요.');
+          return;
+        }
+        
+        // 현재는 로컬 리스트에 추가
+        const newChecklist = {
+          id: Date.now(),
+          ...this.checklists.form,
+          itemCount: this.checklists.form.items.length,
+          createdAt: new Date().toISOString()
+        };
+        
+        this.checklists.templates.push(newChecklist);
+        
+        // 폼 초기화
+        this.resetChecklistForm();
+        this.showChecklistForm = false;
+        this.showSuccess('체크리스트 템플릿이 성공적으로 생성되었습니다.');
+        
+      } catch (error) {
+        this.showError('체크리스트 생성 실패: ' + error.message);
+      } finally {
+        this.loading = false;
+      }
     },
 
     // 일정 목록 로드 (현재는 모의 데이터)
@@ -429,17 +501,62 @@ function adminApp() {
     },
 
     resetTournamentForm() {
-      console.log('토너먼트 폼 리셋');
+      this.tournaments.form = {
+        name: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+        location: '',
+        maxPlayers: 500,
+        isActive: true
+      };
+      this.tournaments.editingId = null;
+    },
+
+    resetChecklistForm() {
+      this.checklists.form = {
+        name: '',
+        description: '',
+        category: 'TECHNICAL',
+        items: []
+      };
+      this.checklists.newItem = {
+        title: '',
+        description: '',
+        isRequired: true,
+        estimatedMinutes: 10
+      };
+      this.checklists.editingId = null;
     },
 
     // 체크리스트 아이템 추가
     addChecklistItem() {
-      console.log('체크리스트 아이템 추가');
+      if (!this.checklists.newItem.title) {
+        this.showError('아이템 제목을 입력해주세요.');
+        return;
+      }
+      
+      const newItem = {
+        id: Date.now(),
+        ...this.checklists.newItem
+      };
+      
+      this.checklists.form.items.push(newItem);
+      
+      // 새 아이템 폼 리셋
+      this.checklists.newItem = {
+        title: '',
+        description: '',
+        isRequired: true,
+        estimatedMinutes: 10
+      };
     },
 
     // 체크리스트 아이템 제거
     removeChecklistItem(index) {
-      console.log('체크리스트 아이템 제거:', index);
+      if (index >= 0 && index < this.checklists.form.items.length) {
+        this.checklists.form.items.splice(index, 1);
+      }
     },
 
     // 메시지 표시 함수들
