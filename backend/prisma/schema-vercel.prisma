@@ -1,0 +1,211 @@
+// Vercel 배포용 Prisma 스키마 (PostgreSQL)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 모델
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("FIELD_MEMBER")
+  avatar    String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  timezone  String   @default("Asia/Seoul")
+  
+  // 관계
+  tournaments TournamentUser[]
+  teamMembers TeamMember[]
+  checklists  UserChecklistItem[]
+  messages    Message[]
+  emergencies Emergency[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
+
+// 토너먼트 모델
+model Tournament {
+  id          String   @id @default(uuid())
+  name        String
+  location    String
+  timezone    String
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("UPCOMING")
+  description String?
+  
+  // 관계
+  users       TournamentUser[]
+  teams       Team[]
+  productions ProductionStatus[]
+  emergencies Emergency[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("tournaments")
+}
+
+// 토너먼트-사용자 연결 테이블
+model TournamentUser {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  role         String     @default("FIELD_MEMBER")
+  joinedAt     DateTime   @default(now())
+  
+  @@unique([tournamentId, userId])
+  @@map("tournament_users")
+}
+
+// 팀 모델
+model Team {
+  id           String       @id @default(uuid())
+  name         String
+  description  String?
+  tournament   Tournament   @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  leaderId     String?
+  
+  // 관계
+  members TeamMember[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("teams")
+}
+
+// 팀 멤버 모델
+model TeamMember {
+  id       String   @id @default(uuid())
+  team     Team     @relation(fields: [teamId], references: [id])
+  teamId   String
+  user     User     @relation(fields: [userId], references: [id])
+  userId   String
+  position String?
+  joinedAt DateTime @default(now())
+  
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// 체크리스트 템플릿 모델
+model ChecklistTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   @default("GENERAL")
+  timeSlot    String   @default("PRODUCTION")
+  priority    String   @default("MEDIUM")
+  isActive    Boolean  @default(true)
+  
+  // 관계
+  items ChecklistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("checklist_templates")
+}
+
+// 체크리스트 아이템 모델
+model ChecklistItem {
+  id               String            @id @default(uuid())
+  template         ChecklistTemplate @relation(fields: [templateId], references: [id])
+  templateId       String
+  title            String
+  description      String?
+  order            Int               @default(0)
+  isRequired       Boolean           @default(false)
+  estimatedMinutes Int               @default(10)
+  
+  // 관계
+  userItems UserChecklistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("checklist_items")
+}
+
+// 사용자별 체크리스트 완료 상태
+model UserChecklistItem {
+  id          String        @id @default(uuid())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+  item        ChecklistItem @relation(fields: [itemId], references: [id])
+  itemId      String
+  isCompleted Boolean       @default(false)
+  completedAt DateTime?
+  notes       String?
+  
+  @@unique([userId, itemId])
+  @@map("user_checklist_items")
+}
+
+// 프로덕션 상태 모델
+model ProductionStatus {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  status       String     @default("PREPARING")
+  tableNumber  Int?
+  cameraNumber Int?
+  notes        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("production_statuses")
+}
+
+// 메시지 모델
+model Message {
+  id        String   @id @default(uuid())
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  String
+  content   String   @db.Text
+  type      String   @default("GENERAL")
+  priority  String   @default("NORMAL")
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@map("messages")
+}
+
+// 긴급 상황 모델
+model Emergency {
+  id           String     @id @default(uuid())
+  reporter     User       @relation(fields: [reporterId], references: [id])
+  reporterId   String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  type         String
+  severity     String     @default("MEDIUM")
+  description  String     @db.Text
+  location     String?
+  status       String     @default("ACTIVE")
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("emergencies")
+}

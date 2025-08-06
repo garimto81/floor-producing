@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 모델
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("FIELD_MEMBER") // UserRole enum → String
+  avatar    String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  timezone  String   @default("Asia/Seoul")
+  
+  // 관계
+  tournaments TournamentUser[]
+  teamMembers TeamMember[]
+  checklists  UserChecklistItem[]
+  messages    Message[]
+  emergencies Emergency[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
+
+// 토너먼트 모델
+model Tournament {
+  id          String @id @default(uuid())
+  name        String
+  location    String
+  timezone    String
+  startDate   DateTime
+  endDate     DateTime
+  status      String @default("UPCOMING") // TournamentStatus enum → String
+  description String?
+  
+  // 관계
+  users       TournamentUser[]
+  teams       Team[]
+  productions ProductionStatus[]
+  checklists  ChecklistTemplate[]
+  emergencies Emergency[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("tournaments")
+}
+
+// 토너먼트 사용자 연결
+model TournamentUser {
+  id           String @id @default(uuid())
+  tournamentId String
+  userId       String
+  role         String // UserRole enum → String
+  
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([tournamentId, userId])
+  @@map("tournament_users")
+}
+
+// 팀 모델
+model Team {
+  id           String @id @default(uuid())
+  tournamentId String
+  name         String
+  description  String?
+  color        String @default("#2196F3")
+  
+  // 관계
+  tournament Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  members    TeamMember[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("teams")
+}
+
+// 팀 멤버
+model TeamMember {
+  id       String @id @default(uuid())
+  teamId   String
+  userId   String
+  position String
+  status   String @default("ACTIVE") // TeamMemberStatus enum → String
+  
+  // 관계
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// 체크리스트 템플릿
+model ChecklistTemplate {
+  id           String  @id @default(uuid())
+  tournamentId String
+  name         String
+  category     String
+  timeSlot     String  // CheckTimeSlot enum → String
+  priority     String  @default("MEDIUM") // Priority enum → String
+  isActive     Boolean @default(true)
+  
+  // 관계
+  tournament Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  items      ChecklistItem[]
+  userItems  UserChecklistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("checklist_templates")
+}
+
+// 체크리스트 아이템
+model ChecklistItem {
+  id          String  @id @default(uuid())
+  templateId  String
+  title       String
+  description String?
+  order       Int
+  isRequired  Boolean @default(false)
+  
+  // 관계
+  template  ChecklistTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  userItems UserChecklistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("checklist_items")
+}
+
+// 사용자별 체크리스트 완료 상태
+model UserChecklistItem {
+  id         String   @id @default(uuid())
+  userId     String
+  templateId String
+  itemId     String
+  isChecked  Boolean  @default(false)
+  checkedAt  DateTime?
+  notes      String?
+  date       DateTime @default(now())
+  
+  // 관계
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  item     ChecklistItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, itemId, date])
+  @@map("user_checklist_items")
+}
+
+// 프로덕션 상태
+model ProductionStatus {
+  id             String  @id @default(uuid())
+  tournamentId   String  @unique
+  mode           String  @default("NORMAL") // ProductionMode enum → String
+  featureTable   String?
+  streamQuality  String?
+  uploadSpeed    Float?
+  teamStatus     String? // Json → String (JSON 문자열로 저장)
+  currentIssues  String?
+  nextSchedule   DateTime?
+  
+  // 관계
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("production_status")
+}
+
+// 메시지/커뮤니케이션
+model Message {
+  id          String  @id @default(uuid())
+  senderId    String
+  recipientId String?
+  type        String  @default("GENERAL") // MessageType enum → String
+  subject     String?
+  content     String
+  isRead      Boolean @default(false)
+  isTemplate  Boolean @default(false)
+  category    String?
+  priority    String  @default("MEDIUM") // Priority enum → String
+  
+  // 관계
+  sender    User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  files     File[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("messages")
+}
+
+// 긴급 상황
+model Emergency {
+  id           String   @id @default(uuid())
+  tournamentId String
+  userId       String
+  type         String   // EmergencyType enum → String
+  severity     String   @default("HIGH") // Priority enum → String
+  title        String
+  description  String
+  status       String   @default("ACTIVE") // EmergencyStatus enum → String
+  resolvedAt   DateTime?
+  resolution   String?
+  
+  // 관계
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("emergencies")
+}
+
+// 파일 업로드
+model File {
+  id        String   @id @default(uuid())
+  messageId String?
+  filename  String
+  originalName String
+  mimetype  String
+  size      Int
+  url       String
+  uploadedBy String?
+  
+  // 관계
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("files")
+}

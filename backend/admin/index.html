@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WSOP Field Director Pro - 관리자 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="./app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div x-data="adminApp" x-cloak class="min-h-screen">
+        <!-- 네비게이션 바 -->
+        <nav class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <h1 class="text-2xl font-bold text-gray-800">
+                                <i class="fas fa-video text-blue-600 mr-2"></i>
+                                WSOP 관리자 패널
+                            </h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-600" x-show="user">
+                            <i class="fas fa-user-circle mr-1"></i>
+                            <span x-text="user?.name"></span>
+                        </div>
+                        <button @click="logout" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-sign-out-alt mr-1"></i>
+                            로그아웃
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 로그인 폼 -->
+        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-md w-full space-y-8">
+                <div>
+                    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                        관리자 로그인
+                    </h2>
+                    <p class="mt-2 text-center text-sm text-gray-600">
+                        WSOP Field Director Pro 백엔드 관리
+                    </p>
+                </div>
+                <form @submit.prevent="login" class="mt-8 space-y-6">
+                    <div>
+                        <input x-model="loginForm.email" type="email" required 
+                               class="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                               placeholder="이메일 주소">
+                    </div>
+                    <div>
+                        <input x-model="loginForm.password" type="password" required
+                               class="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                               placeholder="비밀번호">
+                    </div>
+                    <button type="submit" 
+                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        로그인
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 메인 대시보드 -->
+        <div x-show="isAuthenticated" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 탭 네비게이션 -->
+            <div class="border-b border-gray-200 mb-8">
+                <nav class="-mb-px flex space-x-8">
+                    <button @click="activeTab = 'dashboard'" 
+                            :class="activeTab === 'dashboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-tachometer-alt mr-2"></i>대시보드
+                    </button>
+                    <button @click="activeTab = 'tournaments'" 
+                            :class="activeTab === 'tournaments' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-trophy mr-2"></i>토너먼트 관리
+                    </button>
+                    <button @click="activeTab = 'checklists'" 
+                            :class="activeTab === 'checklists' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-tasks mr-2"></i>체크리스트 관리
+                    </button>
+                    <button @click="activeTab = 'schedules'" 
+                            :class="activeTab === 'schedules' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-calendar-alt mr-2"></i>일정 관리
+                    </button>
+                    <button @click="activeTab = 'teams'" 
+                            :class="activeTab === 'teams' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-users mr-2"></i>팀 관리
+                    </button>
+                    <button @click="activeTab = 'users'" 
+                            :class="activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-user-cog mr-2"></i>사용자 관리
+                    </button>
+                </nav>
+            </div>
+
+            <!-- 대시보드 탭 -->
+            <div x-show="activeTab === 'dashboard'" class="fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 통계 카드들 -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-users text-blue-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">전체 사용자</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.totalUsers || 0"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-trophy text-yellow-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">활성 토너먼트</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.activeTournaments || 0"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-tasks text-green-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">체크리스트</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.totalChecklists || 0"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-calendar text-purple-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">예정 일정</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.upcomingSchedules || 0"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 최근 활동 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                <i class="fas fa-clock text-blue-600 mr-2"></i>최근 활동
+                            </h3>
+                            <div class="flow-root">
+                                <ul class="-mb-8">
+                                    <template x-for="activity in recentActivities" :key="activity.id">
+                                        <li>
+                                            <div class="relative pb-8">
+                                                <div class="relative flex space-x-3">
+                                                    <div class="flex">
+                                                        <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                                            <i class="fas fa-info text-white text-xs"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div class="min-w-0 flex-1">
+                                                        <div>
+                                                            <p class="text-sm text-gray-900" x-text="activity.message"></p>
+                                                            <p class="text-xs text-gray-500" x-text="activity.time"></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                <i class="fas fa-chart-line text-green-600 mr-2"></i>시스템 상태
+                            </h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-500">데이터베이스</span>
+                                    <span class="text-sm text-green-600">
+                                        <i class="fas fa-circle text-xs mr-1"></i>정상
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-500">API 서버</span>
+                                    <span class="text-sm text-green-600">
+                                        <i class="fas fa-circle text-xs mr-1"></i>정상
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-500">백엔드 연결</span>
+                                    <span class="text-sm text-green-600">
+                                        <i class="fas fa-circle text-xs mr-1"></i>연결됨
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-500">마지막 업데이트</span>
+                                    <span class="text-sm text-gray-600" x-text="new Date().toLocaleString()"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 토너먼트 관리 탭 -->
+            <div x-show="activeTab === 'tournaments'" class="fade-in">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                <i class="fas fa-trophy text-yellow-600 mr-2"></i>토너먼트 관리
+                            </h3>
+                            <button @click="showTournamentForm = true" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-plus mr-2"></i>새 토너먼트
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">위치</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">시작일</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="tournament in tournaments" :key="tournament.id">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="tournament.name"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="tournament.location"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="new Date(tournament.startDate).toLocaleDateString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="{
+                                                    'bg-green-100 text-green-800': tournament.status === 'ACTIVE',
+                                                    'bg-yellow-100 text-yellow-800': tournament.status === 'UPCOMING',
+                                                    'bg-gray-100 text-gray-800': tournament.status === 'COMPLETED'
+                                                }" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" x-text="tournament.status"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <button @click="editTournament(tournament)" class="text-blue-600 hover:text-blue-900 mr-3">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button @click="deleteTournament(tournament.id)" class="text-red-600 hover:text-red-900">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 체크리스트 관리 탭 -->
+            <div x-show="activeTab === 'checklists'" class="fade-in">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- 체크리스트 템플릿 목록 -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                        <i class="fas fa-tasks text-green-600 mr-2"></i>체크리스트 템플릿
+                                    </h3>
+                                    <button @click="showChecklistForm = true" 
+                                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                                        <i class="fas fa-plus mr-2"></i>새 템플릿
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="px-4 py-5 sm:p-6">
+                                <div class="space-y-4">
+                                    <template x-for="template in checklistTemplates" :key="template.id">
+                                        <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <h4 class="text-lg font-medium text-gray-900" x-text="template.name"></h4>
+                                                    <p class="text-sm text-gray-500">
+                                                        <i class="fas fa-clock mr-1"></i><span x-text="template.timeSlot"></span> | 
+                                                        <i class="fas fa-exclamation-circle mr-1"></i><span x-text="template.priority"></span>
+                                                    </p>
+                                                    <p class="text-sm text-gray-600 mt-1" x-text="template.category"></p>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <button @click="editChecklistTemplate(template)" class="text-blue-600 hover:text-blue-900">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button @click="deleteChecklistTemplate(template.id)" class="text-red-600 hover:text-red-900">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <div class="text-sm text-gray-500">
+                                                    아이템 수: <span x-text="template.items?.length || 0"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 체크리스트 폼 -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white shadow rounded-lg sticky top-4">
+                            <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                    <i class="fas fa-plus-circle text-green-600 mr-2"></i>
+                                    <span x-text="editingChecklistTemplate ? '템플릿 수정' : '새 템플릿'"></span>
+                                </h3>
+                            </div>
+                            <div class="px-4 py-5 sm:p-6">
+                                <form @submit.prevent="saveChecklistTemplate" class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">템플릿 이름</label>
+                                        <input x-model="checklistForm.name" type="text" required
+                                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">카테고리</label>
+                                        <input x-model="checklistForm.category" type="text" required
+                                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">시간대</label>
+                                        <select x-model="checklistForm.timeSlot" required
+                                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <option value="MORNING">아침 준비</option>
+                                            <option value="PRODUCTION">촬영 중</option>
+                                            <option value="EVENING">마감 정리</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">우선순위</label>
+                                        <select x-model="checklistForm.priority" required
+                                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                            <option value="LOW">낮음</option>
+                                            <option value="MEDIUM">보통</option>
+                                            <option value="HIGH">높음</option>
+                                            <option value="CRITICAL">긴급</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button type="submit" 
+                                                class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                            <i class="fas fa-save mr-2"></i>
+                                            <span x-text="editingChecklistTemplate ? '수정' : '생성'"></span>
+                                        </button>
+                                        <button type="button" @click="resetChecklistForm" 
+                                                class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                            취소
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 일정 관리 탭 -->
+            <div x-show="activeTab === 'schedules'" class="fade-in">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                <i class="fas fa-calendar-alt text-purple-600 mr-2"></i>일정 관리
+                            </h3>
+                            <button @click="showScheduleForm = true" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+                                <i class="fas fa-plus mr-2"></i>새 일정
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-4 py-5 sm:p-6">
+                        <!-- 캘린더 뷰 (간단한 형태) -->
+                        <div class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
+                            <template x-for="day in 7" :key="day">
+                                <div class="text-center">
+                                    <div class="text-sm font-medium text-gray-900 mb-2">
+                                        <span x-text="['월', '화', '수', '목', '금', '토', '일'][day-1]"></span>
+                                    </div>
+                                    <div class="min-h-32 bg-gray-50 rounded-lg p-2">
+                                        <!-- 일정 표시 영역 -->
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- 일정 목록 -->
+                        <div class="mt-8">
+                            <h4 class="text-lg font-medium text-gray-900 mb-4">다가오는 일정</h4>
+                            <div class="space-y-3">
+                                <template x-for="schedule in schedules" :key="schedule.id">
+                                    <div class="border rounded-lg p-4 flex items-center justify-between">
+                                        <div>
+                                            <h5 class="text-md font-medium text-gray-900" x-text="schedule.title"></h5>
+                                            <p class="text-sm text-gray-500">
+                                                <i class="fas fa-clock mr-1"></i>
+                                                <span x-text="new Date(schedule.date).toLocaleString()"></span>
+                                            </p>
+                                            <p class="text-sm text-gray-600" x-text="schedule.description"></p>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <button @click="editSchedule(schedule)" class="text-blue-600 hover:text-blue-900">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button @click="deleteSchedule(schedule.id)" class="text-red-600 hover:text-red-900">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 팀 관리 탭 -->
+            <div x-show="activeTab === 'teams'" class="fade-in">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                <i class="fas fa-users text-orange-600 mr-2"></i>팀 관리
+                            </h3>
+                            <button @click="showTeamForm = true" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700">
+                                <i class="fas fa-plus mr-2"></i>새 팀
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <template x-for="team in teams" :key="team.id">
+                                <div class="border rounded-lg p-6 hover:shadow-lg transition-shadow">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h4 class="text-lg font-medium text-gray-900" x-text="team.name"></h4>
+                                        <div class="flex items-center space-x-2">
+                                            <button @click="editTeam(team)" class="text-blue-600 hover:text-blue-900">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button @click="deleteTeam(team.id)" class="text-red-600 hover:text-red-900">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-3" x-text="team.description"></p>
+                                    <div class="flex items-center justify-between text-sm text-gray-500">
+                                        <span>멤버: <span x-text="team.members?.length || 0"></span>명</span>
+                                        <div class="w-4 h-4 rounded-full" :style="'background-color: ' + team.color"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 사용자 관리 탭 -->
+            <div x-show="activeTab === 'users'" class="fade-in">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            <i class="fas fa-user-cog text-gray-600 mr-2"></i>사용자 관리
+                        </h3>
+                    </div>
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">역할</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">마지막 로그인</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="user in users" :key="user.id">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="user.name"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="user.email"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="user.role"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                                                    <span x-text="user.isActive ? '활성' : '비활성'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" 
+                                                x-text="user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '없음'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <button @click="toggleUserStatus(user)" :class="user.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'">
+                                                    <i :class="user.isActive ? 'fas fa-ban' : 'fas fa-check'" class="mr-1"></i>
+                                                    <span x-text="user.isActive ? '비활성화' : '활성화'"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 알림 메시지 -->
+        <div x-show="notification.show" x-transition:enter="transform ease-out duration-300 transition" x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2" x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 flex items-end justify-center px-4 py-6 pointer-events-none sm:p-6 sm:items-start sm:justify-end z-50">
+            <div class="max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                <div class="p-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i :class="notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 'fas fa-exclamation-circle text-red-400'"></i>
+                        </div>
+                        <div class="ml-3 w-0 flex-1 pt-0.5">
+                            <p class="text-sm font-medium text-gray-900" x-text="notification.message"></p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex">
+                            <button @click="notification.show = false" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
