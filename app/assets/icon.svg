@@ -1,0 +1,6 @@
+
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#2196F3"/>
+  <text x="512" y="512" font-family="Arial, sans-serif" font-size="200" font-weight="bold" text-anchor="middle" fill="white" dy=".3em">FD</text>
+  <text x="512" y="700" font-family="Arial, sans-serif" font-size="80" text-anchor="middle" fill="white">Field Director</text>
+</svg>
