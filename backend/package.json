@@ -16,6 +16,10 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "ts-node src/database/seeds/index.ts",
+    "db:setup": "node scripts/setup-vercel-db.js",
+    "db:test": "node scripts/test-db-connection.js",
+    "env:generate": "node scripts/generate-env-keys.js",
+    "vercel:pull": "vercel env pull .env.local",
     "vercel:build": "prisma generate && prisma migrate deploy",
     "postinstall": "prisma generate"
   },
