@@ -67,6 +67,22 @@
             margin-right: 4px;
             margin-top: 4px;
         }
+        .task-item:hover .delete-task {
+            opacity: 1;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -86,14 +102,143 @@
             <!-- Management Structure will be generated here -->
         </div>
         <div id="timeline-container" class="space-y-8">
-            <!-- Timeline will be generated here -->
+            <div class="loader"></div>
+            <p class="text-center text-gray-500">데이터를 불러오는 중입니다...</p>
         </div>
     </main>
 </div>
 
+<!-- 
+    ==================================================================
+    GOOGLE SHEETS & APPS SCRIPT 설정 안내
+    ==================================================================
+
+    1. 새 Google Sheet 생성:
+       - A열: id, B열: phase_id, C열: day_range, D열: task, E열: is_completed
+       - 첫 행에 헤더(id, phase_id 등)를 입력합니다.
+
+    2. Apps Script 열기:
+       - 상단 메뉴에서 [확장 프로그램] > [Apps Script]를 클릭합니다.
+
+    3. 아래 Apps Script 코드 붙여넣기:
+       - 열리는 스크립트 편집기의 모든 내용을 지우고, 아래 코드를 그대로 붙여넣습니다.
+
+    4. Apps Script 배포:
+       - 오른쪽 상단의 [배포] > [새 배포] 버튼을 클릭합니다.
+       - [유형 선택]에서 '웹 앱'을 선택합니다.
+       - [액세스 권한이 있는 사용자]를 '모든 사용자'로 변경합니다.
+       - [배포] 버튼을 클릭하고, 권한 검토 팝업이 뜨면 계정을 선택하고 [허용]합니다.
+       - 배포가 완료되면 '웹 앱 URL'을 복사합니다. 
+       - ★★★주의: 스프레드시트 공유 URL (docs.google.com/spreadsheets/...)이 아닌, 
+         스크립트 배포 URL (script.google.com/macros/s/...)을 복사해야 합니다!
+
+    5. HTML 코드에 URL 붙여넣기:
+       - 아래 JavaScript 코드의 `const APPS_SCRIPT_URL = '...';` 부분에
+         위에서 복사한 '웹 앱 URL'을 붙여넣습니다.
+         
+    ------------------ Apps Script 코드 시작 ------------------
+
+    function doGet(e) {
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+      const data = sheet.getDataRange().getValues();
+      const headers = data.shift();
+      
+      const result = data.map(row => {
+        let obj = {};
+        headers.forEach((header, i) => {
+          obj[header] = row[i];
+        });
+        return obj;
+      });
+      
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    function doPost(e) {
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+      const params = JSON.parse(e.postData.contents);
+      const action = params.action;
+      
+      try {
+        if (action === 'addTask') {
+          const newId = new Date().getTime();
+          sheet.appendRow([newId, params.phase_id, params.day_range, params.task, false]);
+          return ContentService.createTextOutput(JSON.stringify({ status: 'success', id: newId }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+        
+        if (action === 'updateTask') {
+          const id = params.id;
+          const updates = params.updates;
+          const data = sheet.getDataRange().getValues();
+          const idColumnIndex = data[0].indexOf('id');
+          
+          for (let i = 1; i < data.length; i++) {
+            if (data[i][idColumnIndex] == id) {
+              Object.keys(updates).forEach(key => {
+                const colIndex = data[0].indexOf(key);
+                if (colIndex !== -1) {
+                  sheet.getRange(i + 1, colIndex + 1).setValue(updates[key]);
+                }
+              });
+              return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+                .setMimeType(ContentService.MimeType.JSON);
+            }
+          }
+        }
+        
+        if (action === 'deleteTask') {
+          const id = params.id;
+          const data = sheet.getDataRange().getValues();
+          const idColumnIndex = data[0].indexOf('id');
+          
+          for (let i = data.length - 1; i >= 1; i--) {
+            if (data[i][idColumnIndex] == id) {
+              sheet.deleteRow(i + 1);
+              return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+                .setMimeType(ContentService.MimeType.JSON);
+            }
+          }
+        }
+        
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Invalid action' }))
+            .setMimeType(ContentService.MimeType.JSON);
+
+      } catch (err) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.message }))
+            .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    ------------------ Apps Script 코드 끝 ------------------
+-->
+
     <script>
+        // 4단계에서 배포 후 복사한 URL을 여기에 붙여넣으세요.
+        // 예시: const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsjLlyStc4hsGNJk73uhs5sndQyKspqms64hhsZZEOZEhJVD2zGEuNaWETHnZeo0yv/exec'; 
+
+        const PHASE_CONFIG = {
+            phase0: { title: "Phase 0: 초기 기획", range: "~ 8월 22일 (주중 근무)", color: "phase-0" },
+            phase1: { title: "Phase 1: 사전 제작", range: "8월 25일 ~ 8월 29일 (주중 근무)", color: "phase-1" },
+            phase2: { title: "Phase 2: 현장 설치 및 리허설 (9월)", range: "9월 1일 ~ 9월 30일 (주중 근무)", color: "phase-2" },
+            phase_prep: { title: "최종 국내 정비 (10월)", range: "10월 1일 ~ 10월 8일 (주중 근무)", color: "phase-prep" },
+            phase3: { title: "Phase 3: 프로덕션 실행", range: "10월 9일 ~ 10월 21일", color: "phase-3" },
+            phase4: { title: "Phase 4: 철수 및 사후 분석", range: "10월 22일 ~ (주말 포함)", color: "phase-4" },
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Countdown Logic ---
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            renderCountdown();
+            createManagementStructure();
+            await renderTimeline();
+            initializeDashboardInteraction();
+        }
+
+        function renderCountdown() {
             const projectStartDate = new Date('2025-10-09T00:00:00');
             const now = new Date();
             const diffTime = projectStartDate - now;
@@ -107,322 +252,242 @@
             } else {
                  countdownEl.innerHTML = `프로젝트 <span class="text-5xl countdown-dday">D+${Math.abs(diffDays)}</span>`;
             }
+        }
 
-            // --- Task Data (Weekends Excluded for Pre-production) ---
-            const preProductionTasks = {
-                phase0: {
-                    title: "Phase 0: 초기 기획",
-                    range: "~ 8월 22일 (주중 근무)",
-                    color: "phase-0",
-                    items: [
-                        { day: "D-63 ~ D-57 (8/7~15)", task: "프로젝트 킥오프 미팅 참여 (본사/주최사)" },
-                        { day: "D-63 ~ D-57 (8/7~15)", task: "모든 이해관계자 목록 작성 및 매핑" },
-                        { day: "D-56 ~ D-52 (8/18~22)", task: "현장 실사 진행 및 베뉴 기술 요건 확정" },
-                        { day: "D-52 (8/22)", task: "커뮤니케이션 채널 확정 및 비상 연락망 구축" },
-                    ]
-                },
-                phase1: {
-                    title: "Phase 1: 사전 제작",
-                    range: "8월 25일 ~ 8월 29일 (주중 근무)",
-                    color: "phase-1",
-                    items: [
-                        { day: "D-51 (8/25)", task: "RACI 차트 초안 작성 및 공유" },
-                        { day: "D-50 (8/26)", task: "현지 외주 업체 리서치 및 후보 선정" },
-                        { day: "D-46 (8/29)", task: "기술 장비 리스트 최종 확정 및 백업 계획 수립" },
-                        { day: "D-46 (8/29)", task: "통합 ROS(Run-of-Show) 초안 작성" },
-                    ]
-                },
-                phase2: {
-                    title: "Phase 2: 현장 설치 및 리허설 (9월)",
-                    range: "9월 1일 ~ 9월 30일 (주중 근무)",
-                    color: "phase-2",
-                    items: [
-                        { day: "D-38 (9/1)", task: "현장 도착 및 현지 팀 미팅" },
-                        { day: "D-37 ~ D-30 (9/2~9)", task: "장비 반입 및 리스트 대조, 지휘소(컨트롤 타워) 구축" },
-                        { day: "D-29 ~ D-20 (9/10~19)", task: "카메라, 조명, 오디오 시스템 설치 및 기본 테스트" },
-                        { day: "D-19 ~ D-13 (9/20~26)", task: "기술 리허설 (현장-본사 전체 신호 흐름 테스트), 동기화(Sync) 최종 확인" },
-                        { day: "D-12 ~ D-10 (9/27~29)", task: "압박 테스트(Pressure Test) 수행 (전원, 네트워크, 장비 장애 시뮬레이션)" },
-                        { day: "D-9 (9/30)", task: "ROS 기반 전체 리허설 및 모든 팀원 대상 최종 브리핑" },
-                    ]
-                }
-            };
-            
-            const octoberPrepTasks = {
-                phase_prep: {
-                    title: "최종 국내 정비 (10월)",
-                    range: "10월 1일 ~ 10월 8일 (주중 근무)",
-                    color: "phase-prep",
-                    items: [
-                        { day: "D-8 (10/1)", task: "최종 패킹 리스트 확인 및 누락분 점검" },
-                        { day: "D-7 (10/2)", task: "개인 장비 점검 및 출장 준비" },
-                        { day: "D-6 (10/3)", task: "본사 총괄 디렉터와 최종 보고 및 점검 회의" },
-                        { day: "D-2 (10/7)", task: "프로덕션 바이블 최종 버전 프린트 및 배포" },
-                        { day: "D-1 (10/8)", task: "출장 전 휴식 및 컨디션 조절" }
-                    ]
-                }
-            };
+        // --- Data Fetching and Manipulation ---
+        const delay = ms => new Promise(res => setTimeout(res, ms));
 
-            const productionSchedule = [
-                { date: '2025-10-09', event: 'Opener Event Day 1-A' },
-                { date: '2025-10-10', event: '휴식 및 장비 점검' },
-                { date: '2025-10-11', event: 'Mini Main Event Day 1-A' },
-                { date: '2025-10-12', event: 'Mini Main Event Day 1-C' },
-                { date: '2025-10-13', event: 'Mystery Bounty Day 1-A' },
-                { date: '2025-10-14', event: 'Mystery Bounty Day 1-D' },
-                { date: '2025-10-15', event: 'Mystery Bounty Day 2' },
-                { date: '2025-10-16', event: 'Main Event Day 1-A / Super High Roller Day 1' },
-                { date: '2025-10-17', event: 'Main Event Day 1-C / Super High Roller Final Day' },
-                { date: '2025-10-18', event: 'Main Event Day 2' },
-                { date: '2025-10-19', event: 'Main Event Day 3' },
-                { date: '2025-10-20', event: 'Main Event Day 4' },
-                { date: '2025-10-21', event: 'Main Event Final Day' }
-            ];
-
-            const hourlyTemplate = [
-                { time: "09:00", task: "현장 도착 및 일일 브리핑 (Call Sheet Briefing)" },
-                { time: "10:00", task: "모든 시스템 최종 점검 (Power-on Check)" },
-                { time: "11:30", task: "선수 브리핑 및 방송 대기" },
-                { time: "12:00", task: "대회 시작 및 라이브 프로덕션 개시" },
-                { time: "16:00", task: "중간 장비 점검 및 데이터 백업" },
-                { time: "22:00", task: "경기 종료 예상 및 후반부 집중 운영" },
-                { time: "24:00", task: "최종 데이터 전송 확인 및 일일 디브리핑 (Hotwash)" }
-            ];
-            
-            const postProductionTasks = {
-                 phase4: {
-                    title: "Phase 4: 철수 및 사후 분석",
-                    range: "10월 22일 ~ (주말 포함)",
-                    color: "phase-4",
-                    items: [
-                        { day: "D+13 (10/22)", task: "장비 철수 및 리스트 대조 확인" },
-                        { day: "D+13 (10/22)", task: "베뉴 원상 복구 및 관리자 확인" },
-                        { day: "D+14 (10/23)", task: "현지 업체 및 프리랜서 비용 정산" },
-                        { day: "D+20 (10/29)", task: "공식 사후 검토 회의 소집 및 진행" },
-                        { day: "D+23 (11/3)", task: "프로젝트 결과 보고서 작성 (KPI, 개선점 등)" },
-                        { day: "D+27 (11/7)", task: "프로덕션 바이블 최종 업데이트 (학습 내용 반영)" },
-                    ]
-                }
+        async function apiCall(payload) {
+            if (APPS_SCRIPT_URL === '여기에_복사한_URL_붙여넣기' || APPS_SCRIPT_URL.includes('docs.google.com/spreadsheets')) {
+                alert('올바른 Apps Script 웹 앱 URL을 설정해야 합니다. HTML 코드 상단의 주석을 확인하세요.');
+                return null;
             }
+            try {
+                fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                return { status: 'success' };
+            } catch (error) {
+                console.error('API call failed:', error);
+                alert('데이터 변경에 실패했습니다. 인터넷 연결을 확인해주세요.');
+                return null;
+            }
+        }
 
-            // --- Management Structure Generation ---
-            function createManagementStructure() {
-                const container = document.getElementById('management-structure-container');
-                container.innerHTML = `
-                    <div class="bg-white rounded-lg shadow-lg p-4 md:p-6">
-                        <h2 class="text-xl md:text-2xl font-bold text-center mb-2">인터랙티브 협업 네트워크</h2>
-                        <p class="text-center text-gray-500 text-sm mb-8">각 팀 카드에 마우스를 올리면 협업 라인이 하이라이트됩니다.</p>
-                        
-                        <!-- Command Chain -->
-                        <div class="text-center mb-8">
-                            <div class="inline-block bg-indigo-100 text-indigo-800 font-bold p-3 rounded-lg shadow">원격 본사 총괄 디렉터</div>
-                            <div class="command-arrow">↓</div>
-                            <div class="inline-block bg-indigo-100 text-indigo-800 font-bold p-3 rounded-lg shadow">조감독</div>
-                            <div class="command-arrow">↓</div>
-                            <div class="relative inline-block">
-                                <div class="bg-green-100 text-green-800 font-extrabold text-lg p-4 rounded-lg shadow-lg border-2 border-green-300">현장 총괄 프로듀서 (나)</div>
-                                <div class="absolute -top-4 -right-4 bg-yellow-200 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full shadow-md">PA (직속 보조)</div>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-2 max-w-2xl mx-auto">현장 프로덕션의 모든 측면을 총괄. 예산, 일정, 인력, 품질 관리 및 본사 조감독과의 최종 소통 책임.</p>
-                        </div>
+        async function fetchTasks() {
+            if (APPS_SCRIPT_URL === '여기에_복사한_URL_붙여넣기') {
+                document.querySelector('#timeline-container').innerHTML = `<p class="text-center text-red-500">에러: Apps Script URL이 설정되지 않았습니다. HTML 코드 상단의 안내를 따라 설정해주세요.</p>`;
+                return null;
+            }
+            if (APPS_SCRIPT_URL.includes('docs.google.com/spreadsheets')) {
+                document.querySelector('#timeline-container').innerHTML = `<p class="text-center text-red-500">오류: 잘못된 URL 형식입니다. Google Sheet의 '공유' URL이 아닌, Apps Script '배포' 후 생성된 '웹 앱 URL'을 입력해야 합니다.</p>`;
+                return null;
+            }
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                if (!response.ok) {
+                    throw new Error(`네트워크 응답이 올바르지 않습니다. Status: ${response.status}`);
+                }
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                     throw new Error("JSON이 아닌 응답을 받았습니다. Apps Script '웹 앱 URL'이 올바른지, '액세스 권한'이 '모든 사용자'로 설정되었는지 확인해주세요.");
+                }
+            } catch (error) {
+                console.error('Failed to fetch tasks:', error);
+                let errorMessage = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = "데이터를 가져오지 못했습니다. CORS 오류일 가능성이 높습니다. Apps Script 배포 시 '액세스 권한'을 '모든 사용자'로 설정했는지 다시 확인해주세요.";
+                }
+                document.querySelector('#timeline-container').innerHTML = `<p class="text-center text-red-500">데이터 로딩 오류: ${errorMessage}</p>`;
+                return null;
+            }
+        }
 
-                        <!-- Team Modules -->
-                        <div id="team-dashboard" class="border-t-2 border-gray-200 pt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            
-                            <div class="team-module bg-blue-50 p-4 rounded-lg shadow-md border-l-4 border-blue-400" data-team="feature-table">
-                                <h3 class="font-bold text-blue-800">피처 테이블 리더</h3>
-                                <p class="text-xs text-blue-600 italic mt-1 mb-3">방송 연출 및 기술 운영 총괄</p>
-                                <ul class="text-sm space-y-2 mb-3">
-                                    <li>- 카메라 감독, 스위처, FR7, GFX, 조명 등</li>
-                                </ul>
-                                <div class="border-t pt-2 mt-2">
-                                    <span class="collab-tag">기술팀</span>
-                                </div>
-                            </div>
+        async function addTask(phaseId, dayRange, task) {
+            await apiCall({ action: 'addTask', phase_id: phaseId, day_range: dayRange, task: task });
+            await delay(1500);
+            await renderTimeline();
+        }
 
-                            <div class="team-module bg-purple-50 p-4 rounded-lg shadow-md border-l-4 border-purple-400" data-team="tech">
-                                <h3 class="font-bold text-purple-800">기술팀 리더</h3>
-                                <p class="text-xs text-purple-600 italic mt-1 mb-3">방송 기술 인프라 총괄</p>
-                                <ul class="text-sm space-y-2 mb-3">
-                                    <li>- 오디오/네트워크 담당 & 보조</li>
-                                </ul>
-                                <div class="border-t pt-2 mt-2">
-                                    <span class="collab-tag">피처 테이블</span>
-                                    <span class="collab-tag">외주 PM</span>
-                                    <span class="collab-tag">소프트 콘텐츠</span>
-                                </div>
-                            </div>
+        async function updateTask(id, updates) {
+            await apiCall({ action: 'updateTask', id: id, updates: updates });
+            if(updates.task) {
+                await delay(1500);
+                await renderTimeline();
+            }
+        }
 
-                            <div class="team-module bg-pink-50 p-4 rounded-lg shadow-md border-l-4 border-pink-400" data-team="vendor">
-                                <h3 class="font-bold text-pink-800">외주 PM</h3>
-                                <p class="text-xs text-pink-600 italic mt-1 mb-3">모든 외부 업체 관리 및 소통</p>
-                                <ul class="text-sm space-y-2 mb-3">
-                                    <li>- 호텔, 운영사, 대행사, 외주 프로덕션</li>
-                                </ul>
-                                <div class="border-t pt-2 mt-2">
-                                    <span class="collab-tag">기술팀</span>
-                                </div>
-                            </div>
+        async function deleteTask(id) {
+            if (confirm('정말로 이 업무를 삭제하시겠습니까?')) {
+                await apiCall({ action: 'deleteTask', id: id });
+                await delay(1500);
+                await renderTimeline();
+            }
+        }
 
-                            <div class="team-module bg-teal-50 p-4 rounded-lg shadow-md border-l-4 border-teal-400" data-team="soft-content">
-                                <h3 class="font-bold text-teal-800">소프트 콘텐츠 리더</h3>
-                                <p class="text-xs text-teal-600 italic mt-1 mb-3">부가 콘텐츠 기획 및 제작</p>
-                                <ul class="text-sm space-y-2 mb-3">
-                                    <li>- 소프트 팀</li>
-                                </ul>
-                                <div class="border-t pt-2 mt-2">
-                                    <span class="collab-tag">기술팀</span>
-                                </div>
-                            </div>
+        // --- UI Rendering ---
+        async function renderTimeline() {
+            const timelineContainer = document.getElementById('timeline-container');
+            timelineContainer.innerHTML = `<div class="loader"></div><p class="text-center text-gray-500">데이터를 불러오는 중입니다...</p>`;
+            const tasks = await fetchTasks();
+            
+            if (!tasks) return;
 
+            timelineContainer.innerHTML = '';
+
+            const tasksByPhase = tasks.reduce((acc, task) => {
+                (acc[task.phase_id] = acc[task.phase_id] || []).push(task);
+                return acc;
+            }, {});
+
+            Object.keys(PHASE_CONFIG).forEach(phaseId => {
+                const phase = PHASE_CONFIG[phaseId];
+                const phaseTasks = tasksByPhase[phaseId] || [];
+                
+                const phaseCard = document.createElement('div');
+                phaseCard.className = `phase-card ${phase.color} bg-white rounded-lg shadow-lg p-4 md:p-6`;
+
+                let tasksHtml = phaseTasks.map(item => `
+                    <div class="task-item flex items-center py-2 border-b border-gray-200 last:border-b-0">
+                        <span class="font-semibold text-gray-600 w-28 md:w-36 text-sm flex-shrink-0">${item.day_range}</span>
+                        <div class="flex-grow ml-4 flex items-center">
+                            <input type="checkbox" id="task-${item.id}" class="task-checkbox hidden" ${item.is_completed ? 'checked' : ''}>
+                            <label for="task-${item.id}" class="task-label cursor-pointer flex items-center flex-grow">
+                                <span class="w-5 h-5 mr-3 border-2 border-gray-300 rounded-sm flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                                </span>
+                                <span class="task-text" contenteditable="true" onblur="updateTask(${item.id}, { task: this.innerText });">${item.task}</span>
+                            </label>
+                            <button class="delete-task opacity-0 transition-opacity text-red-500 hover:text-red-700 ml-2" onclick="deleteTask(${item.id})">✖</button>
                         </div>
                     </div>
-                `;
-            }
-            
-            // --- Interactive Dashboard Logic ---
-            function initializeDashboardInteraction() {
-                const collaborationMap = {
-                    'feature-table': ['tech'],
-                    'tech': ['feature-table', 'vendor', 'soft-content'],
-                    'vendor': ['tech'],
-                    'soft-content': ['tech']
-                };
-
-                const teamModules = document.querySelectorAll('.team-module');
-
-                teamModules.forEach(module => {
-                    module.addEventListener('mouseenter', () => {
-                        const currentTeam = module.dataset.team;
-                        const collaborators = collaborationMap[currentTeam] || [];
-                        
-                        teamModules.forEach(m => {
-                            const teamName = m.dataset.team;
-                            if (teamName === currentTeam || collaborators.includes(teamName)) {
-                                m.classList.add('highlight');
-                                m.classList.remove('dimmed');
-                            } else {
-                                m.classList.add('dimmed');
-                                m.classList.remove('highlight');
-                            }
-                        });
-                    });
-
-                    module.addEventListener('mouseleave', () => {
-                        teamModules.forEach(m => {
-                            m.classList.remove('highlight', 'dimmed');
-                        });
-                    });
-                });
-            }
-
-            // --- Timeline Generation ---
-            const timelineContainer = document.getElementById('timeline-container');
-            
-            function createTaskCards(phaseData) {
-                Object.values(phaseData).forEach(phase => {
-                    const phaseCard = document.createElement('div');
-                    phaseCard.className = `phase-card ${phase.color} bg-white rounded-lg shadow-lg p-4 md:p-6`;
-
-                    let tasksHtml = phase.items.map((item, index) => `
-                        <div class="flex items-center py-2 border-b border-gray-200 last:border-b-0">
-                            <span class="font-semibold text-gray-600 w-28 md:w-36 text-sm flex-shrink-0">${item.day}</span>
-                            <div class="flex-grow ml-4">
-                                <input type="checkbox" id="task-${phase.title.replace(/\s/g, '')}-${index}" class="task-checkbox hidden">
-                                <label for="task-${phase.title.replace(/\s/g, '')}-${index}" class="task-label cursor-pointer flex items-center">
-                                    <span class="w-5 h-5 mr-3 border-2 border-gray-300 rounded-sm flex-shrink-0 flex items-center justify-center">
-                                        <svg class="w-4 h-4 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                    </span>
-                                    ${item.task}
-                                </label>
-                            </div>
-                        </div>
-                    `).join('');
-
-                    phaseCard.innerHTML = `
-                        <div class="flex flex-col sm:flex-row justify-between sm:items-center">
-                            <h2 class="text-xl md:text-2xl font-bold mb-2 sm:mb-0">${phase.title}</h2>
-                            <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full self-start sm:self-center">${phase.range}</span>
-                        </div>
-                        <div class="mt-4">
-                            ${tasksHtml}
-                        </div>
-                    `;
-                    timelineContainer.appendChild(phaseCard);
-                });
-            }
-
-            function createProductionSchedule() {
-                const phaseCard = document.createElement('div');
-                phaseCard.className = `phase-card phase-3 bg-white rounded-lg shadow-lg p-4 md:p-6`;
-                
-                let productionDaysHtml = productionSchedule.map((day, dayIndex) => {
-                    const dayDate = new Date(day.date + 'T00:00:00');
-                    const isToday = now.toDateString() === dayDate.toDateString();
-                    const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][dayDate.getDay()];
-
-                    let hourlyTasksHtml = hourlyTemplate.map((item, taskIndex) => `
-                        <div class="flex items-center py-2 border-b border-gray-200 last:border-b-0">
-                            <span class="font-semibold text-gray-600 w-16 text-sm">${item.time}</span>
-                            <div class="flex-grow ml-4">
-                                <input type="checkbox" id="task-prod-${dayIndex}-${taskIndex}" class="task-checkbox hidden">
-                                <label for="task-prod-${dayIndex}-${taskIndex}" class="task-label cursor-pointer flex items-center">
-                                    <span class="w-5 h-5 mr-3 border-2 border-gray-300 rounded-sm flex-shrink-0 flex items-center justify-center">
-                                        <svg class="w-4 h-4 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                    </span>
-                                    ${item.task}
-                                </label>
-                            </div>
-                        </div>
-                    `).join('');
-
-                    return `
-                        <div class="mt-6 p-4 rounded-md ${isToday ? 'bg-indigo-50 border-2 border-indigo-400' : 'bg-gray-50'}">
-                            <div class="flex flex-col sm:flex-row justify-between sm:items-center">
-                                <h3 class="text-lg font-bold flex items-center mb-2 sm:mb-0">
-                                    ${day.date} (${dayOfWeek}) <span class="ml-3 text-base font-medium text-red-600">${day.event}</span>
-                                </h3>
-                                ${isToday ? '<span class="text-sm font-bold text-white bg-indigo-500 px-3 py-1 rounded-full self-start sm:self-center">TODAY</span>' : ''}
-                            </div>
-                            <div class="mt-2">
-                                ${day.event.includes('휴식') ? '<p class="text-gray-600">휴식일입니다. 장비 점검 및 재정비 시간을 갖습니다.</p>' : hourlyTasksHtml}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                `).join('');
 
                 phaseCard.innerHTML = `
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center">
-                        <h2 class="text-xl md:text-2xl font-bold mb-2 sm:mb-0">Phase 3: 프로덕션 실행</h2>
-                        <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full self-start sm:self-center">10월 9일 ~ 10월 21일</span>
+                        <h2 class="text-xl md:text-2xl font-bold mb-2 sm:mb-0">${phase.title}</h2>
+                        <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full self-start sm:self-center">${phase.range}</span>
                     </div>
-                    ${productionDaysHtml}
+                    <div class="mt-4">${tasksHtml}</div>
+                    <div class="mt-4">
+                        <button class="w-full text-left text-sm text-gray-500 hover:text-blue-600 p-2 rounded-md bg-gray-100 hover:bg-blue-100" onclick="promptAddTask('${phaseId}')">+ 업무 추가</button>
+                    </div>
                 `;
                 timelineContainer.appendChild(phaseCard);
-            }
+            });
             
-            createManagementStructure();
-            initializeDashboardInteraction();
-            createTaskCards(preProductionTasks);
-            createTaskCards(octoberPrepTasks);
-            createProductionSchedule();
-            createTaskCards(postProductionTasks);
-
-            // Add interactivity to checkboxes
             document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', (e) => {
-                    const label = e.target.nextElementSibling;
+                const updateCheckboxState = (cb) => {
+                    const label = cb.nextElementSibling;
                     const checkmark = label.querySelector('svg');
                     const box = label.querySelector('span');
-                    if (e.target.checked) {
+                    if (cb.checked) {
                         checkmark.classList.remove('hidden');
                         box.classList.add('bg-blue-500', 'border-blue-500');
                     } else {
                         checkmark.classList.add('hidden');
                         box.classList.remove('bg-blue-500', 'border-blue-500');
                     }
+                }
+                updateCheckboxState(checkbox);
+                checkbox.addEventListener('change', (e) => {
+                    updateCheckboxState(e.target);
+                    const taskId = parseInt(e.target.id.replace('task-', ''));
+                    updateTask(taskId, { is_completed: e.target.checked });
                 });
             });
-        });
+        }
+        
+        window.promptAddTask = (phaseId) => {
+            const dayRange = prompt("날짜 범위(예: D-10 (9/29))를 입력하세요:");
+            if (!dayRange) return;
+            const taskText = prompt("업무 내용을 입력하세요:");
+            if (taskText) {
+                addTask(phaseId, dayRange, taskText);
+            }
+        }
+        
+        function createManagementStructure() {
+            const container = document.getElementById('management-structure-container');
+            container.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-center mb-2">인터랙티브 협업 네트워크</h2>
+                    <p class="text-center text-gray-500 text-sm mb-8">각 팀 카드에 마우스를 올리면 협업 라인이 하이라이트됩니다.</p>
+                    <div class="text-center mb-8">
+                        <div class="inline-block bg-indigo-100 text-indigo-800 font-bold p-3 rounded-lg shadow">원격 본사 총괄 디렉터</div>
+                        <div class="command-arrow">↓</div>
+                        <div class="inline-block bg-indigo-100 text-indigo-800 font-bold p-3 rounded-lg shadow">조감독</div>
+                        <div class="command-arrow">↓</div>
+                        <div class="relative inline-block">
+                            <div class="bg-green-100 text-green-800 font-extrabold text-lg p-4 rounded-lg shadow-lg border-2 border-green-300">현장 총괄 프로듀서 (나)</div>
+                            <div class="absolute -top-4 -right-4 bg-yellow-200 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full shadow-md">PA (직속 보조)</div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2 max-w-2xl mx-auto">현장 프로덕션의 모든 측면을 총괄. 예산, 일정, 인력, 품질 관리 및 본사 조감독과의 최종 소통 책임.</p>
+                    </div>
+                    <div id="team-dashboard" class="border-t-2 border-gray-200 pt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="team-module bg-blue-50 p-4 rounded-lg shadow-md border-l-4 border-blue-400" data-team="feature-table">
+                            <h3 class="font-bold text-blue-800">피처 테이블 리더</h3>
+                            <p class="text-xs text-blue-600 italic mt-1 mb-3">방송 연출 및 기술 운영 총괄</p>
+                            <ul class="text-sm space-y-2 mb-3"><li>- 카메라 감독, 스위처, FR7, GFX, 조명 등</li></ul>
+                            <div class="border-t pt-2 mt-2"><span class="collab-tag">기술팀</span></div>
+                        </div>
+                        <div class="team-module bg-purple-50 p-4 rounded-lg shadow-md border-l-4 border-purple-400" data-team="tech">
+                            <h3 class="font-bold text-purple-800">기술팀 리더</h3>
+                            <p class="text-xs text-purple-600 italic mt-1 mb-3">방송 기술 인프라 총괄</p>
+                            <ul class="text-sm space-y-2 mb-3"><li>- 오디오/네트워크 담당 & 보조</li></ul>
+                            <div class="border-t pt-2 mt-2"><span class="collab-tag">피처 테이블</span><span class="collab-tag">외주 PM</span><span class="collab-tag">소프트 콘텐츠</span></div>
+                        </div>
+                        <div class="team-module bg-pink-50 p-4 rounded-lg shadow-md border-l-4 border-pink-400" data-team="vendor">
+                            <h3 class="font-bold text-pink-800">외주 PM</h3>
+                            <p class="text-xs text-pink-600 italic mt-1 mb-3">모든 외부 업체 관리 및 소통</p>
+                            <ul class="text-sm space-y-2 mb-3"><li>- 호텔, 운영사, 대행사, 외주 프로덕션</li></ul>
+                            <div class="border-t pt-2 mt-2"><span class="collab-tag">기술팀</span></div>
+                        </div>
+                        <div class="team-module bg-teal-50 p-4 rounded-lg shadow-md border-l-4 border-teal-400" data-team="soft-content">
+                            <h3 class="font-bold text-teal-800">소프트 콘텐츠 리더</h3>
+                            <p class="text-xs text-teal-600 italic mt-1 mb-3">부가 콘텐츠 기획 및 제작</p>
+                            <ul class="text-sm space-y-2 mb-3"><li>- 소프트 팀</li></ul>
+                            <div class="border-t pt-2 mt-2"><span class="collab-tag">기술팀</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function initializeDashboardInteraction() {
+            const collaborationMap = {
+                'feature-table': ['tech'],
+                'tech': ['feature-table', 'vendor', 'soft-content'],
+                'vendor': ['tech'],
+                'soft-content': ['tech']
+            };
+            const teamModules = document.querySelectorAll('.team-module');
+            teamModules.forEach(module => {
+                module.addEventListener('mouseenter', () => {
+                    const currentTeam = module.dataset.team;
+                    const collaborators = collaborationMap[currentTeam] || [];
+                    teamModules.forEach(m => {
+                        const teamName = m.dataset.team;
+                        if (teamName === currentTeam || collaborators.includes(teamName)) {
+                            m.classList.add('highlight');
+                            m.classList.remove('dimmed');
+                        } else {
+                            m.classList.add('dimmed');
+                            m.classList.remove('highlight');
+                        }
+                    });
+                });
+                module.addEventListener('mouseleave', () => {
+                    teamModules.forEach(m => m.classList.remove('highlight', 'dimmed'));
+                });
+            });
+        }
     </script>
 </body>
 </html>
